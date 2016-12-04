@@ -15,4 +15,8 @@ executable christmas-tree
   hs-source-dirs:   src
   main-is:          Main.hs
   default-language: Haskell2010
-  build-depends:    base >= 4.7 && < 5
+
+  build-depends: base       >= 4.7  && < 5
+               , bytestring >= 0.10 && < 0.11
+               , serialport >= 0.4  && < 0.5
+               , prizm      >= 0.3  && < 0.4
