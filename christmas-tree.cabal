@@ -3,7 +3,7 @@ version:  0.1.0
 synopsis: Controls the lights in the Christmas tree
 homepage: https://github.com/ruuda/christmas-tree
 
-license:    GPL3
+license:    GPL-3
 author:     Ruud van Asseldonk
 maintainer: dev@veniogames.com
 copyright:  2016 Ruud van Asseldonk

@@ -12,6 +12,8 @@ module Main where
 import Control.Monad (forever)
 import Data.Bits (xor)
 import Data.Monoid ((<>))
+import System.Environment (getArgs)
+import System.Exit (exitFailure)
 import System.Hardware.Serialport
 
 import qualified Data.ByteString as ByteString
@@ -49,11 +51,21 @@ sendDatagram port dgram = do
   send port $ ByteString.toStrict $ ByteString.toLazyByteString dgram
   flush port
 
+parseCommandLine :: IO String
+parseCommandLine = do
+  args <- getArgs
+  case args of
+    portAddr : [] -> pure portAddr
+    _ -> do
+      putStrLn "Usage: christmas-tree PORT"
+      putStrLn ""
+      putStrLn "  PORT: Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
+      exitFailure
+
 main :: IO ()
 main = do
-  let
-    portAddr = "/dev/ttyUSB0" -- Or "COM3" on Windows.
-    settings = defaultSerialSettings { commSpeed = CS115200 }
+  let settings = defaultSerialSettings { commSpeed = CS115200 }
+  portAddr <- parseCommandLine
   sp <- openSerial portAddr settings
   forever $ do
     sendDatagram sp $ buildDatagram $ replicate 25 $ Color.fromHex "#ff0000"
