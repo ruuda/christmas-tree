@@ -19,4 +19,3 @@ executable christmas-tree
   build-depends: base       >= 4.7  && < 5
                , bytestring >= 0.10 && < 0.11
                , serialport >= 0.4  && < 0.5
-               , prizm      >= 0.3  && < 0.4

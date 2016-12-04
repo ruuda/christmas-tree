@@ -12,6 +12,7 @@ module Main where
 import Control.Monad (forever)
 import Data.Bits (xor)
 import Data.Monoid ((<>))
+import Data.Word (Word8)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.Hardware.Serialport
@@ -20,18 +21,24 @@ import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Lazy as ByteString
 import qualified Data.ByteString.Builder as ByteString
 
-import qualified Data.Prizm.Types as Color
-import qualified Data.Prizm.Color.CIE.LCH as Color
+import Debug.Trace (traceShow)
 
-type Color = Color.CIELCH Double
+type Color = (Float, Float, Float)
+
+mapColor :: (Float -> a) -> Color -> (a, a, a)
+mapColor f (r, g, b) = (f r, f g, f b)
 
 serializeColor :: Color -> ByteString.Builder
 serializeColor color =
   let
-    Color.RGB r g b = Color.toRGB color
+    -- The LEDs have quite a non-linear response, so square the values to
+    -- counter that a bit.
+    correctPower x = x * x
+    toByte x = round (255.0 * x)
+    (r, g, b) = mapColor (ByteString.word8 . toByte . correctPower) color
   in
-    -- Just the three RGB bytes.
-    mconcat $ fmap (ByteString.word8 . fromIntegral) [r, g, b]
+    -- The data is just the three RGB bytes.
+    r <> g <> b
 
 buildDatagram :: [Color] -> ByteString.Builder
 buildDatagram colors =
@@ -69,5 +76,11 @@ main = do
   sp <- openSerial portAddr settings
   forever $ do
     putStrLn "Setting color ..."
-    let colors = take 25 $ cycle $ fmap Color.fromHex ["#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff"]
+    let
+      colors = take 25 $ cycle [
+        (1.0, 0.0, 0.0),
+        (1.0, 1.0, 0.0),
+        (0.0, 1.0, 0.0),
+        (0.0, 1.0, 1.0),
+        (0.0, 0.0, 1.0)]
     sendDatagram sp $ buildDatagram colors
