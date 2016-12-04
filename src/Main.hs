@@ -38,7 +38,7 @@ buildDatagram colors =
   let
     numLeds = length colors
     magicBytes = ByteString.byteString "Ada"
-    numLedsBytes = ByteString.word16BE (fromIntegral numLeds)
+    numLedsBytes = ByteString.word16LE (fromIntegral numLeds)
     -- This checksum is only correct for less than 256 LEDs, but I have only 25
     -- anyway.
     checksumBytes = ByteString.word8 (fromIntegral numLeds `xor` 0x55)
@@ -68,4 +68,6 @@ main = do
   portAddr <- parseCommandLine
   sp <- openSerial portAddr settings
   forever $ do
-    sendDatagram sp $ buildDatagram $ replicate 25 $ Color.fromHex "#ff0000"
+    putStrLn "Setting color ..."
+    let colors = take 25 $ cycle $ fmap Color.fromHex ["#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff"]
+    sendDatagram sp $ buildDatagram colors
