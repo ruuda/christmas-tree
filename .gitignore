@@ -1,0 +1,7 @@
+# Build output
+/.stack-work
+
+# Editor files
+*.swp
+*.swo
+/tags
