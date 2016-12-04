@@ -50,6 +50,8 @@ hsl h s l = (r + m, g + m, b + m)
 data Mode
   = Rainbow
   | RainbowCycle
+  | GoldCycle
+  | Flash Color
 
 -- Compute the color for each of the 25 LEDs, given the time and mode.
 assignColors :: Float -> Mode -> [Color]
@@ -60,6 +62,10 @@ assignColors t mode = fmap f [1..25]
         hsl (0.1 * fromIntegral i) 1.0 0.5
       RainbowCycle ->
         hsl (t * 0.05 + 0.1 * fromIntegral i) 1.0 0.5
+      GoldCycle ->
+        hsl 0.12 0.5 (((sin (t * 0.1 + 0.2 * fromIntegral i)) ^ 2) * 0.7)
+      Flash color ->
+        if (t `mod'` 1) < 0.5 then color else (0, 0, 0)
 
 getSecondsSinceMidnight :: IO Float
 getSecondsSinceMidnight = fmap toSecs Clock.getCurrentTime
@@ -114,4 +120,4 @@ main = do
   sp <- openSerial portAddr settings
   forever $ do
     t <- getSecondsSinceMidnight
-    sendDatagram sp $ buildDatagram (assignColors t RainbowCycle)
+    sendDatagram sp $ buildDatagram (assignColors t (Flash (1.0, 0.0, 0.0)))
