@@ -19,7 +19,7 @@ import System.Exit (exitFailure)
 import System.Hardware.Serialport
 
 import qualified Data.ByteString as ByteString
-import qualified Data.ByteString.Lazy as ByteString
+import qualified Data.ByteString.Lazy as ByteString (toStrict)
 import qualified Data.ByteString.Builder as ByteString
 import qualified Data.Time.Clock as Clock
 
@@ -78,8 +78,8 @@ serializeColor color =
     -- The LEDs have quite a non-linear response, so cube the values to
     -- counter that a bit.
     correctPower x = x * x * x
-    toByte x = round (255.0 * x)
-    (r, g, b) = mapColor (ByteString.word8 . toByte . correctPower) color
+    toByte x = ByteString.word8 (round (255.0 * x))
+    (r, g, b) = mapColor (toByte . correctPower) color
   in
     -- The data is just the three RGB bytes.
     r <> g <> b
@@ -89,17 +89,17 @@ buildDatagram colors =
   let
     numLeds = length colors
     magicBytes = ByteString.byteString "Ada"
-    numLedsBytes = ByteString.word16LE (fromIntegral numLeds)
+    numLedsBytes = ByteString.word16LE (fromIntegral (numLeds - 1))
     -- This checksum is only correct for less than 256 LEDs, but I have only 25
     -- anyway.
-    checksumBytes = ByteString.word8 (fromIntegral numLeds `xor` 0x55)
+    checksumBytes = ByteString.word8 (fromIntegral (numLeds - 1) `xor` 0x55)
     colorBytes = mconcat (fmap serializeColor colors)
   in
     magicBytes <> numLedsBytes <> checksumBytes <> colorBytes
 
 sendDatagram :: SerialPort -> ByteString.Builder -> IO ()
 sendDatagram port dgram = do
-  send port $ ByteString.toStrict $ ByteString.toLazyByteString dgram
+  send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
   flush port
 
 parseCommandLine :: IO String
@@ -120,4 +120,4 @@ main = do
   sp <- openSerial portAddr settings
   forever $ do
     t <- getSecondsSinceMidnight
-    sendDatagram sp $ buildDatagram (assignColors t (Flash (1.0, 0.0, 0.0)))
+    sendDatagram sp $ buildDatagram (assignColors t GoldCycle)
