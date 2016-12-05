@@ -24,7 +24,7 @@ import Data.SecureMem (SecureMem, secureMemFromByteString)
 import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
 import System.IO (BufferMode (LineBuffering), hSetBuffering, stderr, stdout)
-import System.Posix.Env (getEnv)
+import System.Environment (lookupEnv)
 import Web.Scotty (ScottyM, liftAndCatchIO, middleware, post, scottyApp)
 
 import qualified Control.Concurrent.Chan as Chan
@@ -138,11 +138,12 @@ runHttpsServer certPath skeyPath port password chan =
 
 justGetEnv :: String -> IO String
 justGetEnv varname = do
-  maybeValue <- getEnv varname
+  maybeValue <- lookupEnv varname
   case maybeValue of
     Nothing -> error (varname ++ " not set")
     Just value -> pure value
 
+main :: IO ()
 main = do
   -- Read configuration from environment variables.
   certPath <- justGetEnv "CERT_PATH"

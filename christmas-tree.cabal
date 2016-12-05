@@ -36,7 +36,6 @@ executable ct-server
                , bytestring     >= 0.10 && < 0.11
                , network        >= 2.6  && < 2.7
                , network-simple >= 0.4  && < 0.5
-               , unix           >= 2.7  && < 2.8
                , scotty         >= 0.11 && < 0.12
                , securemem      >= 0.1  && < 0.2
                , text           >= 1.2  && < 1.3
