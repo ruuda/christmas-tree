@@ -10,7 +10,19 @@ the Arduino and accepts color data over USB. The Arduino presents itself as a
 serial device to the computer, and the `christmas-tree` program writes color
 data to the serial port.
 
-How does the `christmas-tree` program pick the colors? Good question.
+## Software
+
+There are two programs:
+
+ * `server`, the API server that runs on a publicly accessible server. It
+   exposes a simple API over https on one port (protected by basic auth). On a
+   different port it listens for connecting clients. When a client connects, it
+   the server sends it mode changes via the socket.
+
+ * `cristmas-tree`, the program that runs in a local network and writes color
+   data to the serial port. Colors are determined by the current mode, and the
+   current mode is retrieved by connecting to the server and listening for mode
+   changes.
 
 ## License
 

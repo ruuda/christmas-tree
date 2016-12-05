@@ -9,21 +9,23 @@
 
 module Main where
 
-import Control.Monad (forever)
+import Control.Monad (forever, void)
+import Control.Concurrent (forkIO)
+import Control.Concurrent.MVar (MVar, newMVar, putMVar, readMVar)
 import Data.Bits (xor)
 import Data.Fixed (mod')
+import Data.Maybe (listToMaybe)
 import Data.Monoid ((<>))
-import Data.Word (Word8)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
-import System.Hardware.Serialport
+import System.Hardware.Serialport (SerialPort, commSpeed, defaultSerialSettings)
 
-import qualified Data.ByteString as ByteString
+import qualified Data.ByteString.Char8 as ByteString (unpack)
 import qualified Data.ByteString.Lazy as ByteString (toStrict)
 import qualified Data.ByteString.Builder as ByteString
 import qualified Data.Time.Clock as Clock
-
-import Debug.Trace (traceShow)
+import qualified Network.Simple.TCP as Socket
+import qualified System.Hardware.Serialport as SerialPort
 
 import Protocol (Color, Mode (..))
 
@@ -35,7 +37,6 @@ mapColor f (r, g, b) = (f r, f g, f b)
 hsl :: Float -> Float -> Float -> Color
 hsl h s l = (r + m, g + m, b + m)
   where
-    wrap x = x - (fromInteger (floor x))
     h' = h `mod'` 1
     c = s * (1 - abs (2 * l - 1))
     x = c * (1 - abs (((h * 6) `mod'` 2) - 1))
@@ -93,8 +94,8 @@ buildDatagram colors =
 
 sendDatagram :: SerialPort -> ByteString.Builder -> IO ()
 sendDatagram port dgram = do
-  send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
-  flush port
+  SerialPort.send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
+  SerialPort.flush port
 
 parseCommandLine :: IO (String, String)
 parseCommandLine = do
@@ -102,17 +103,54 @@ parseCommandLine = do
   case args of
     portAddr : hostname : [] -> pure (portAddr, hostname)
     _ -> do
-      putStrLn "Usage: christmas-tree PORT HOSTNAME"
+      putStrLn "Usage: christmas-tree PORT HOST"
       putStrLn ""
-      putStrLn "  PORT:     Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
-      putStrLn "  HOSTNAME: Server to get mode updates from."
+      putStrLn "  PORT: Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
+      putStrLn "  HOST: Server to get mode updates from, e.g. 'example.com:8001'."
       exitFailure
+
+runDriver :: String -> MVar Mode -> IO ()
+runDriver portAddr modeVar =
+  let
+    settings = defaultSerialSettings { commSpeed = SerialPort.CS115200 }
+  in do
+    sp <- SerialPort.openSerial portAddr settings
+    forever $ do
+      t <- getSecondsSinceMidnight
+      mode <- readMVar modeVar
+      sendDatagram sp $ buildDatagram (assignColors t mode)
+
+-- Connect to the socket on the server, await push notifications of new modes,
+-- and when one arrives, parse it and change the MVar.
+runFetcher :: String -> MVar Mode -> IO ()
+runFetcher host modeVar =
+  let
+    (hostname, colonPort) = break (== ':') host
+    port = tail colonPort
+    maybeRead = fmap fst . listToMaybe . reads
+  in
+    Socket.connect hostname port $ \ (socket, remoteAddr) -> do
+      putStrLn $ "Connected to " ++ (show remoteAddr) ++ "."
+      forever $ do
+        -- Read at most 256 bytes (mode strings are shorter than that).
+        maybeBytes <- Socket.recv socket 256
+        let maybeString = fmap (filter (/= '\n') . ByteString.unpack) maybeBytes
+        case maybeString of
+          Nothing -> error "Connection to server failed."
+          Just modeString ->
+            case maybeRead modeString of
+              Nothing -> putStrLn "Received invalid mode."
+              Just newMode -> putMVar modeVar newMode
 
 main :: IO ()
 main = do
-  let settings = defaultSerialSettings { commSpeed = CS115200 }
-  (portAddr, _hostname) <- parseCommandLine
-  sp <- openSerial portAddr settings
-  forever $ do
-    t <- getSecondsSinceMidnight
-    sendDatagram sp $ buildDatagram (assignColors t GoldCycle)
+  (portAddr, host) <- parseCommandLine
+
+  -- Create an MVar to hold the current mode, starting in rainbow mode.
+  modeVar <- newMVar Rainbow
+
+  putStrLn $ "Starting fetcher, listening for updates from " ++ host ++ "."
+  void $ forkIO $ runFetcher host modeVar
+
+  putStrLn $ "Running driver, feeding into " ++ portAddr ++ "."
+  runDriver portAddr  modeVar
