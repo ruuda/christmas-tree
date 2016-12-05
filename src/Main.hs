@@ -11,7 +11,7 @@ module Main where
 
 import Control.Monad (forever, void)
 import Control.Concurrent (forkIO)
-import Control.Concurrent.MVar (MVar, newMVar, putMVar, readMVar)
+import Control.Concurrent.MVar (MVar, newMVar, readMVar, swapMVar)
 import Data.Bits (xor)
 import Data.Fixed (mod')
 import Data.Maybe (listToMaybe)
@@ -140,7 +140,7 @@ runFetcher host modeVar =
           Just modeString ->
             case maybeRead modeString of
               Nothing -> putStrLn "Received invalid mode."
-              Just newMode -> putMVar modeVar newMode
+              Just newMode -> void $ swapMVar modeVar newMode
 
 main :: IO ()
 main = do
