@@ -14,6 +14,7 @@ cabal-version: >=1.10
 executable christmas-tree
   hs-source-dirs:   src
   main-is:          Main.hs
+  other-modules:    Protocol
   default-language: Haskell2010
   ghc-options: -O2
 
@@ -27,15 +28,17 @@ executable ct-server
   main-is:          Server.hs
   other-modules:    Protocol
   default-language: Haskell2010
+  ghc-options: -Wall -Wno-orphans
 
-  build-depends: attoparsec >= 0.13 && < 0.14
-               , base       >= 4.9  && < 4.10
-               , bytestring >= 0.10 && < 0.11
-               , network    >= 2.6  && < 2.7
-               , unix       >= 2.7  && < 2.8
-               , scotty     >= 0.11 && < 0.12
-               , securemem  >= 0.1  && < 0.2
-               , text       >= 1.2  && < 1.3
-               , wai-extra  >= 3.0  && < 3.1
-               , warp       >= 3.2  && < 3.3
-               , warp-tls   >= 3.2  && < 3.3
+  build-depends: attoparsec     >= 0.13 && < 0.14
+               , base           >= 4.9  && < 4.10
+               , bytestring     >= 0.10 && < 0.11
+               , network        >= 2.6  && < 2.7
+               , network-simple >= 0.4  && < 0.5
+               , unix           >= 2.7  && < 2.8
+               , scotty         >= 0.11 && < 0.12
+               , securemem      >= 0.1  && < 0.2
+               , text           >= 1.2  && < 1.3
+               , wai-extra      >= 3.0  && < 3.1
+               , warp           >= 3.2  && < 3.3
+               , warp-tls       >= 3.2  && < 3.3

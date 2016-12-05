@@ -25,7 +25,7 @@ import qualified Data.Time.Clock as Clock
 
 import Debug.Trace (traceShow)
 
-type Color = (Float, Float, Float)
+import Protocol (Color, Mode (..))
 
 mapColor :: (Float -> a) -> Color -> (a, a, a)
 mapColor f (r, g, b) = (f r, f g, f b)
@@ -47,12 +47,6 @@ hsl h s l = (r + m, g + m, b + m)
               | h' < 5/6 = (x, 0, c)
               | otherwise = (c, 0, x)
 
-data Mode
-  = Rainbow
-  | RainbowCycle
-  | GoldCycle
-  | Flash Color
-
 -- Compute the color for each of the 25 LEDs, given the time and mode.
 assignColors :: Float -> Mode -> [Color]
 assignColors t mode = fmap f [1..25]
@@ -64,7 +58,7 @@ assignColors t mode = fmap f [1..25]
         hsl (t * 0.05 + 0.1 * fromIntegral i) 1.0 0.5
       GoldCycle ->
         hsl 0.12 0.5 (((sin (t * 0.1 + 0.2 * fromIntegral i)) ^ 2) * 0.7)
-      Flash color ->
+      Blink color ->
         if (t `mod'` 1) < 0.5 then color else (0, 0, 0)
 
 getSecondsSinceMidnight :: IO Float
@@ -102,21 +96,22 @@ sendDatagram port dgram = do
   send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
   flush port
 
-parseCommandLine :: IO String
+parseCommandLine :: IO (String, String)
 parseCommandLine = do
   args <- getArgs
   case args of
-    portAddr : [] -> pure portAddr
+    portAddr : hostname : [] -> pure (portAddr, hostname)
     _ -> do
-      putStrLn "Usage: christmas-tree PORT"
+      putStrLn "Usage: christmas-tree PORT HOSTNAME"
       putStrLn ""
-      putStrLn "  PORT: Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
+      putStrLn "  PORT:     Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
+      putStrLn "  HOSTNAME: Server to get mode updates from."
       exitFailure
 
 main :: IO ()
 main = do
   let settings = defaultSerialSettings { commSpeed = CS115200 }
-  portAddr <- parseCommandLine
+  (portAddr, _hostname) <- parseCommandLine
   sp <- openSerial portAddr settings
   forever $ do
     t <- getSecondsSinceMidnight

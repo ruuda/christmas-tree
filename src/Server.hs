@@ -23,7 +23,7 @@ import Data.ByteString (ByteString)
 import Data.SecureMem (SecureMem, secureMemFromByteString)
 import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
-import System.IO (BufferMode (LineBuffering), Handle, hSetBuffering, stderr, stdout)
+import System.IO (BufferMode (LineBuffering), hSetBuffering, stderr, stdout)
 import System.Posix.Env (getEnv)
 import Web.Scotty (ScottyM, liftAndCatchIO, middleware, post, scottyApp)
 
@@ -31,8 +31,7 @@ import qualified Control.Concurrent.Chan as Chan
 import qualified Data.ByteString.Char8 as ByteString
 import qualified Data.Attoparsec.Text as Ap
 import qualified Data.Text.Lazy as Text
-import qualified Network.Socket as Socket
-import qualified Network.Socket.ByteString as SocketBs
+import qualified Network.Simple.TCP as Socket
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WarpTLS as Warp
 import qualified Web.Scotty as Scotty
@@ -96,10 +95,10 @@ server password chan =
 -- Send the current mode to the client over the socket.
 sendMode :: Socket -> Mode -> IO ()
 sendMode socket mode =
-  SocketBs.sendAll socket (ByteString.pack ((show mode) ++ "\n"))
+  Socket.send socket (ByteString.pack ((show mode) ++ "\n"))
 
 feedClient :: Chan Cmd -> Socket -> IO ()
-feedClient chan socket = sendMode socket initialMode >> (go [initialMode])
+feedClient chan socket = (sendMode socket initialMode) >> (go [initialMode])
   where
     initialMode = Rainbow
     -- The function maintains a stack of modes, and commands manipulate this
@@ -121,23 +120,12 @@ feedClient chan socket = sendMode socket initialMode >> (go [initialMode])
       -- Recurse to loop.
       go modeStack'
 
-acceptClients :: Chan Cmd -> Socket -> IO ()
-acceptClients chan socket = go
-  where
-    go = do
-      (clientSocket, clientAddr) <- Socket.accept socket
-      clientChan <- Chan.dupChan chan
-      putStrLn $ "Incoming socket connection from " ++ (show clientAddr)
-      forkIO (feedClient clientChan clientSocket)
-      go
-
 runSocketServer :: Int -> Chan Cmd -> IO ()
-runSocketServer port chan = do
-  let localhost = Socket.tupleToHostAddress (127, 0, 0, 1)
-  socket <- Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
-  Socket.bind socket $ Socket.SockAddrInet (fromIntegral port) localhost
-  Socket.listen socket 1
-  acceptClients chan socket
+runSocketServer port chan =
+  Socket.serve Socket.HostAny (show port) $ \ (socket, clientAddr) -> do
+    putStrLn $ "Incoming socket connection from " ++ (show clientAddr)
+    clientChan <- Chan.dupChan chan
+    feedClient clientChan socket
 
 runHttpsServer :: FilePath -> FilePath -> Int -> String -> Chan Cmd -> IO ()
 runHttpsServer certPath skeyPath port password chan =
