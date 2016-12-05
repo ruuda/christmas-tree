@@ -14,7 +14,8 @@ module Main where
 --
 --     curl -d '' https://chainsaw:pass@example.com/blink?color=#ff0000&duration=5s
 
-import Control.Concurrent (forkIO)
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent.Chan (Chan)
 import Control.Monad (void)
 import Data.ByteString (ByteString)
 import Data.SecureMem (SecureMem, secureMemFromByteString)
@@ -22,13 +23,16 @@ import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
 import System.IO (BufferMode (LineBuffering), Handle, hSetBuffering, stderr, stdout)
 import System.Posix.Env (getEnv)
-import Web.Scotty (ScottyM, middleware, param, post, scottyApp, text)
+import Web.Scotty (ScottyM, liftAndCatchIO, middleware, param, post, scottyApp, text)
 
+import qualified Control.Concurrent.Chan as Chan
 import qualified Data.ByteString.Char8 as ByteString
 import qualified Network.Socket as Socket
 import qualified Network.Socket.ByteString as SocketBs
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WarpTLS as Warp
+
+import Protocol (Color, Mode (..))
 
 isAuthOk :: SecureMem -> ByteString -> ByteString -> Bool
 isAuthOk actualPassword user presumedPassword =
@@ -36,45 +40,57 @@ isAuthOk actualPassword user presumedPassword =
   -- Use SecureMem for a constant-time string comparison.
   actualPassword == (secureMemFromByteString presumedPassword)
 
-server :: SecureMem -> ScottyM ()
-server password = do
+server :: SecureMem -> Chan Mode -> ScottyM ()
+server password chan = do
 
   middleware $ basicAuth (\ u p -> pure (isAuthOk password u p)) "chainsaw"
 
   post "/blink" $ do
     --color <- param "color"
-    --duration <- param "duration"
+    duration <- param "duration"
+    void $ liftAndCatchIO $ forkIO $ do
+      Chan.writeChan chan (Blink (1.0, 0.0, 0.0))
+      threadDelay (1000 * 1000 * duration)
+      -- TODO: Put back the previous mode. How?
+      Chan.writeChan chan Rainbow
     text "blinking it is!"
 
-feedClient :: Socket -> IO ()
-feedClient socket = do
-  void $ SocketBs.send socket "hi"
+feedClient :: Chan Mode -> Socket -> IO ()
+feedClient chan socket = go
+  where
+    go = do
+      -- In a loop, wait until the mode changes, and when it does, inform the
+      -- client.
+      newMode <- Chan.readChan chan
+      SocketBs.sendAll socket (ByteString.pack ((show newMode) ++ "\n"))
+      go
 
-acceptClients :: Socket -> IO ()
-acceptClients socket = go
+acceptClients :: Chan Mode -> Socket -> IO ()
+acceptClients chan socket = go
   where
     go = do
       (clientSocket, clientAddr) <- Socket.accept socket
+      clientChan <- Chan.dupChan chan
       putStrLn $ "Incoming socket connection from " ++ (show clientAddr)
-      forkIO (feedClient clientSocket)
+      forkIO (feedClient clientChan clientSocket)
       go
 
-runSocketServer :: Int -> IO ()
-runSocketServer port = do
+runSocketServer :: Int -> Chan Mode -> IO ()
+runSocketServer port chan = do
   let localhost = Socket.tupleToHostAddress (127, 0, 0, 1)
   socket <- Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
   Socket.bind socket $ Socket.SockAddrInet (fromIntegral port) localhost
   Socket.listen socket 1
-  acceptClients socket
+  acceptClients chan socket
 
-runHttpsServer :: FilePath -> FilePath -> Int -> String -> IO ()
-runHttpsServer certPath skeyPath port password =
+runHttpsServer :: FilePath -> FilePath -> Int -> String -> Chan Mode -> IO ()
+runHttpsServer certPath skeyPath port password chan =
   let
     tlsSettings = Warp.tlsSettings certPath skeyPath
     httpSettings = Warp.setPort port Warp.defaultSettings
     passwordSecMem = secureMemFromByteString $ ByteString.pack password
   in
-    Warp.runTLS tlsSettings httpSettings =<< (scottyApp $ server passwordSecMem)
+    Warp.runTLS tlsSettings httpSettings =<< (scottyApp $ server passwordSecMem chan)
 
 justGetEnv :: String -> IO String
 justGetEnv varname = do
@@ -99,8 +115,11 @@ main = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
 
+  -- The API server will push mode changes into this channel.
+  chan <- Chan.newChan
+
   putStrLn $ "Starting socket server at port " ++ (show sockPort)
-  void $ forkIO $ runSocketServer sockPort
+  void $ forkIO $ runSocketServer sockPort chan
 
   putStrLn $ "Starting https server at port " ++ (show httpPort)
-  runHttpsServer certPath skeyPath httpPort password
+  runHttpsServer certPath skeyPath httpPort password chan
