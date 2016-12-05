@@ -24,6 +24,12 @@ There are two programs:
    current mode is retrieved by connecting to the server and listening for mode
    changes.
 
+## Modes
+
+A mode is a function `Float -> Integer -> Color`, that takes the current time
+(the amount of seconds since midnight) and the LED index, and produces a color
+for the LED.
+
 ## License
 
 Christmas Tree is free software. It is licensed under the
