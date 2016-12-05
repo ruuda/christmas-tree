@@ -14,14 +14,19 @@ module Main where
 --
 --     curl -d '' https://chainsaw:pass@example.com/blink?color=#ff0000&duration=5s
 
+import Control.Concurrent (forkIO)
+import Control.Monad (void)
 import Data.ByteString (ByteString)
 import Data.SecureMem (SecureMem, secureMemFromByteString)
+import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
-import System.IO (BufferMode (LineBuffering), hSetBuffering, stderr, stdout)
+import System.IO (BufferMode (LineBuffering), Handle, hSetBuffering, stderr, stdout)
 import System.Posix.Env (getEnv)
 import Web.Scotty (ScottyM, middleware, param, post, scottyApp, text)
 
 import qualified Data.ByteString.Char8 as ByteString
+import qualified Network.Socket as Socket
+import qualified Network.Socket.ByteString as SocketBs
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.WarpTLS as Warp
 
@@ -41,8 +46,29 @@ server password = do
     --duration <- param "duration"
     text "blinking it is!"
 
-runServer :: FilePath -> FilePath -> Int -> String -> IO ()
-runServer certPath skeyPath port password =
+feedClient :: Socket -> IO ()
+feedClient socket = do
+  void $ SocketBs.send socket "hi"
+
+acceptClients :: Socket -> IO ()
+acceptClients socket = go
+  where
+    go = do
+      (clientSocket, clientAddr) <- Socket.accept socket
+      putStrLn $ "Incoming socket connection from " ++ (show clientAddr)
+      forkIO (feedClient clientSocket)
+      go
+
+runSocketServer :: Int -> IO ()
+runSocketServer port = do
+  let localhost = Socket.tupleToHostAddress (127, 0, 0, 1)
+  socket <- Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol
+  Socket.bind socket $ Socket.SockAddrInet (fromIntegral port) localhost
+  Socket.listen socket 1
+  acceptClients socket
+
+runHttpsServer :: FilePath -> FilePath -> Int -> String -> IO ()
+runHttpsServer certPath skeyPath port password =
   let
     tlsSettings = Warp.tlsSettings certPath skeyPath
     httpSettings = Warp.setPort port Warp.defaultSettings
@@ -73,7 +99,8 @@ main = do
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
 
-  putStrLn $ "Starting http server at port " ++ (show httpPort)
-  runServer certPath skeyPath httpPort password
+  putStrLn $ "Starting socket server at port " ++ (show sockPort)
+  void $ forkIO $ runSocketServer sockPort
 
-  pure ()
+  putStrLn $ "Starting https server at port " ++ (show httpPort)
+  runHttpsServer certPath skeyPath httpPort password
