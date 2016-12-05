@@ -14,4 +14,4 @@ data Mode
   | Rainbow
   | RainbowCycle
   | GoldCycle
-  deriving (Read, Show)
+  deriving (Eq, Read, Show)
