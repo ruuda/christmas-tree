@@ -111,7 +111,8 @@ server password chan =
 
 -- Send the current mode to the client over the socket.
 sendMode :: Socket -> Mode -> IO ()
-sendMode socket mode =
+sendMode socket mode = do
+  putStrLn $ "Sending new mode: " ++ (show mode) ++ "."
   Socket.send socket (ByteString.pack ((show mode) ++ "\n"))
 
 feedClient :: Chan Cmd -> Socket -> IO ()
