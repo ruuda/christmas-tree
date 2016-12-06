@@ -20,7 +20,6 @@ import Control.Concurrent.Chan (Chan)
 import Control.Monad (void, when)
 import Data.Bits ((.&.), shiftR)
 import Data.ByteString (ByteString)
-import Data.Maybe (fromMaybe, listToMaybe)
 import Data.SecureMem (SecureMem, secureMemFromByteString)
 import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
@@ -75,7 +74,7 @@ server :: SecureMem -> Chan Cmd -> ScottyM ()
 server password chan =
   let
     sendCmds cmds = liftAndCatchIO $ mapM_ (Chan.writeChan chan) cmds
-    paramOrDefault name def = fmap (fromMaybe def . listToMaybe) (Scotty.param name)
+    paramOrDefault name def = Scotty.param name `Scotty.rescue` (const (pure def))
   in do
 
   middleware $ basicAuth (\ u p -> pure (isAuthOk password u p)) "chainsaw"
