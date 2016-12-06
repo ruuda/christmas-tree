@@ -84,7 +84,7 @@ buildDatagram colors =
   let
     numLeds = length colors
     magicBytes = ByteString.byteString "Ada"
-    numLedsBytes = ByteString.word16LE (fromIntegral (numLeds - 1))
+    numLedsBytes = ByteString.word16BE (fromIntegral (numLeds - 1))
     -- This checksum is only correct for less than 256 LEDs, but I have only 25
     -- anyway.
     checksumBytes = ByteString.word8 (fromIntegral (numLeds - 1) `xor` 0x55)
