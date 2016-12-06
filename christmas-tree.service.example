@@ -1,0 +1,27 @@
+[Unit]
+Description=christmas tree API server
+After=networking.service
+Requires=networking.service
+
+[Service]
+ExecStart=/usr/bin/ct-server
+User=your-user
+Environment=\
+  CERT_PATH=/etc/letsencrypt/live/example.com/fullchain.pem \
+  SECRET_KEY_PATH=/etc/letsencrypt/live/example.com/privkey.pem \
+  PASSWORD=run-pwgen-to-get-one \
+  HTTP_PORT=443 \
+  SOCK_PORT=444
+
+Restart=on-failure
+RestartSec=10
+
+# Make /etc, /usr, and /boot read-only to the process.
+ProtectSystem=full
+MemoryDenyWriteExecute=true
+
+# Allow binding to priviliged ports (e.g. 80 and 443) as non-root user.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
