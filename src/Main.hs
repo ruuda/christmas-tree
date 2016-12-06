@@ -94,7 +94,7 @@ buildDatagram colors =
 
 sendDatagram :: SerialPort -> ByteString.Builder -> IO ()
 sendDatagram port dgram = do
-  SerialPort.send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
+  void $ SerialPort.send port $! ByteString.toStrict $ ByteString.toLazyByteString dgram
   SerialPort.flush port
 
 parseCommandLine :: IO (String, String)
@@ -113,9 +113,8 @@ runDriver :: String -> MVar Mode -> IO ()
 runDriver portAddr modeVar =
   let
     settings = defaultSerialSettings { commSpeed = SerialPort.CS115200 }
-  in do
-    sp <- SerialPort.openSerial portAddr settings
-    forever $ do
+  in
+    SerialPort.withSerial portAddr settings $ \ sp -> forever $ do
       t <- getSecondsSinceMidnight
       mode <- readMVar modeVar
       sendDatagram sp $ buildDatagram (assignColors t mode)
@@ -140,7 +139,9 @@ runFetcher host modeVar =
           Just modeString ->
             case maybeRead modeString of
               Nothing -> putStrLn "Received invalid mode."
-              Just newMode -> void $ swapMVar modeVar newMode
+              Just newMode -> do
+                putStrLn $ "Entering mode " ++ (show newMode) ++ "."
+                void $ swapMVar modeVar newMode
 
 main :: IO ()
 main = do
