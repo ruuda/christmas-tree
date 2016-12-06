@@ -162,13 +162,6 @@ justGetEnv varname = do
 
 main :: IO ()
 main = do
-  -- Read configuration from environment variables.
-  certPath <- justGetEnv "CERT_PATH"
-  skeyPath <- justGetEnv "SECRET_KEY_PATH"
-  password <- justGetEnv "PASSWORD"
-  httpPort <- fmap read $ justGetEnv "HTTP_PORT" :: IO Int
-  sockPort <- fmap read $ justGetEnv "SOCK_PORT" :: IO Int
-
   -- When the runtime detects that stdout is not connected to a console, it
   -- defaults to block buffering instead of line buffering. When running under
   -- systemd, this prevents things written to stdout from showing up until the
@@ -176,6 +169,13 @@ main = do
   -- flush after every newline.
   hSetBuffering stdout LineBuffering
   hSetBuffering stderr LineBuffering
+
+  -- Read configuration from environment variables.
+  certPath <- justGetEnv "CERT_PATH"
+  skeyPath <- justGetEnv "SECRET_KEY_PATH"
+  password <- justGetEnv "PASSWORD"
+  httpPort <- fmap read $ justGetEnv "HTTP_PORT" :: IO Int
+  sockPort <- fmap read $ justGetEnv "SOCK_PORT" :: IO Int
 
   -- The API server will push commands to change the mode into this channel.
   chan <- Chan.newChan
