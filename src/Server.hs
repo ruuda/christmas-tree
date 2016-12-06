@@ -20,6 +20,7 @@ import Control.Concurrent.Chan (Chan)
 import Control.Monad (void, when)
 import Data.Bits ((.&.), shiftR)
 import Data.ByteString (ByteString)
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.SecureMem (SecureMem, secureMemFromByteString)
 import Network.Socket (Socket)
 import Network.Wai.Middleware.HttpAuth (basicAuth)
@@ -74,6 +75,7 @@ server :: SecureMem -> Chan Cmd -> ScottyM ()
 server password chan =
   let
     sendCmds cmds = liftAndCatchIO $ mapM_ (Chan.writeChan chan) cmds
+    paramOrDefault name def = fmap (fromMaybe def . listToMaybe) (Scotty.param name)
   in do
 
   middleware $ basicAuth (\ u p -> pure (isAuthOk password u p)) "chainsaw"
@@ -89,8 +91,23 @@ server password chan =
     Scotty.text "Rainbows ok. No ponies though.\n"
 
   post "/rainbow-cycle" $ do
-    sendCmds [SetMode RainbowCycle]
+    tfreq <- paramOrDefault "tfreq" 0.05
+    sfreq <- paramOrDefault "sfreq" 0.1
+    sendCmds [SetMode $ RainbowCycle tfreq sfreq]
     Scotty.text "Such animated rainbow. Very wow.\n"
+
+  post "/gold-cycle" $ do
+    tfreq <- paramOrDefault "tfreq" 0.1
+    sfreq <- paramOrDefault "sfreq" 0.3
+    sendCmds [SetMode $ ColorCycle (1.0, 0.7, 0.2) tfreq sfreq]
+    Scotty.text "A most excellent choice.\n"
+
+  post "/color-cycle" $ do
+    color <- Scotty.param "color"
+    tfreq <- paramOrDefault "tfreq" 0.1
+    sfreq <- paramOrDefault "sfreq" 0.3
+    sendCmds [SetMode $ ColorCycle color tfreq sfreq]
+    Scotty.text "I just hope it's not pink.\n"
 
 -- Send the current mode to the client over the socket.
 sendMode :: Socket -> Mode -> IO ()

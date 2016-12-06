@@ -55,10 +55,11 @@ assignColors t mode = fmap f [1..25]
     f i = case mode of
       Rainbow ->
         hsl (0.1 * fromIntegral i) 1.0 0.5
-      RainbowCycle ->
-        hsl (t * 0.05 + 0.1 * fromIntegral i) 1.0 0.5
-      GoldCycle ->
-        hsl 0.12 0.5 (((sin (t * 0.1 + 0.2 * fromIntegral i)) ^ 2) * 0.7)
+      RainbowCycle ft fs ->
+        hsl (ft * t + fs * fromIntegral i) 1.0 0.5
+      ColorCycle color ft fs ->
+        let phase = 0.5 + 0.5 * (sin (ft * t + fs * fromIntegral i))
+        in  mapColor (* (phase ** 2)) color
       Blink color ->
         if (t `mod'` 1) < 0.5 then color else (0, 0, 0)
 
@@ -70,11 +71,12 @@ getSecondsSinceMidnight = fmap toSecs Clock.getCurrentTime
 serializeColor :: Color -> ByteString.Builder
 serializeColor color =
   let
-    -- The LEDs have quite a non-linear response, so cube the values to
-    -- counter that a bit.
-    correctPower x = x * x * x
+    -- The LEDs have quite a non-linear response, so ~cube the values to
+    -- counter that a bit. Also, green is brighter than red, it should be toned
+    -- down a bit in the low values.
+    correctPower (rf, gf, bf) = (rf ** 2.8, gf ** 3.2, bf ** 2.8)
     toByte x = ByteString.word8 (round (255.0 * x))
-    (r, g, b) = mapColor (toByte . correctPower) color
+    (r, g, b) = mapColor toByte (correctPower color)
   in
     -- The data is just the three RGB bytes.
     r <> g <> b

@@ -9,9 +9,12 @@ module Protocol (Color, Mode (..)) where
 
 type Color = (Float, Float, Float)
 
+type TimeFreq = Float
+type SpatialFreq = Float
+
 data Mode
   = Blink Color
+  | ColorCycle Color TimeFreq SpatialFreq
   | Rainbow
-  | RainbowCycle
-  | GoldCycle
+  | RainbowCycle TimeFreq SpatialFreq
   deriving (Eq, Read, Show)
