@@ -2,6 +2,8 @@
 
 An API for lighting up my Christmas tree.
 
+[![Build Status][ci-img]][ci]
+
 ## Hardware
 
 I am using the components of the [Adalight][adalight]: a 25 pixel RGB LED
@@ -37,3 +39,5 @@ Christmas Tree is free software. It is licensed under the
 
 [gplv3]:    https://www.gnu.org/licenses/gpl-3.0.html
 [adalight]: https://learn.adafruit.com/adalight-diy-ambient-tv-lighting
+[ci]:       https://travis-ci.org/ruuda/christmas-tree
+[ci-img]:   https://travis-ci.org/ruuda/christmas-tree.svg?branch=master
