@@ -26,6 +26,21 @@ There are two programs:
    current mode is retrieved by connecting to the server and listening for mode
    changes.
 
+## Running
+
+To run the client on Ubuntu 16.04:
+
+    # Build the client program.
+    stack setup
+    stack build
+
+    # Give yourself permission to access /dev/ttyACM0
+    sudo usermod --append --groups dialout YOURNAME
+
+    # Run the client, assuming the Arduino is at /dev/ttyACM0.
+    # Replace example.com:444 with your server domain and socket port.
+    stack exec christmas-tree /dev/ttyACM0 example.com:444
+
 ## Modes
 
 A mode is a function `Float -> Integer -> Color`, that takes the current time

@@ -107,7 +107,7 @@ parseCommandLine = do
     _ -> do
       putStrLn "Usage: christmas-tree PORT HOST"
       putStrLn ""
-      putStrLn "  PORT: Arduino port ('COM3' on Windows, '/dev/ttyUSB0' on Linux)."
+      putStrLn "  PORT: Arduino port ('COM3' on Windows, '/dev/ttyACM0' on Linux)."
       putStrLn "  HOST: Server to get mode updates from, e.g. 'example.com:8001'."
       exitFailure
 
