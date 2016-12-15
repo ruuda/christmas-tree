@@ -35,7 +35,7 @@ To run the client on Ubuntu 16.04:
     stack build
 
     # Give yourself permission to access /dev/ttyACM0
-    sudo usermod --append --groups dialout YOURNAME
+    sudo usermod --append --groups dialout $USER
 
     # Run the client, assuming the Arduino is at /dev/ttyACM0.
     # Replace example.com:444 with your server domain and socket port.
