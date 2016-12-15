@@ -16,7 +16,7 @@ executable christmas-tree
   main-is:          Main.hs
   other-modules:    Protocol
   default-language: Haskell2010
-  ghc-options: -Wall -Wno-type-defaults -O2 -threaded
+  ghc-options: -Wall -Werror -Wno-type-defaults -O2 -threaded
 
   build-depends: base           >= 4.9  && < 4.10
                , bytestring     >= 0.10 && < 0.11
@@ -29,7 +29,7 @@ executable ct-server
   main-is:          Server.hs
   other-modules:    Protocol
   default-language: Haskell2010
-  ghc-options: -Wall -Wno-orphans -O2 -threaded
+  ghc-options: -Wall -Werror -Wno-orphans -O2 -threaded
 
   build-depends: attoparsec     >= 0.13 && < 0.14
                , base           >= 4.9  && < 4.10

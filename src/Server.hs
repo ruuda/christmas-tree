@@ -43,6 +43,8 @@ data Cmd
   | PopMode
   | PushMode Mode
   | SetMode Mode
+  | Tick -- To keep the connection from timing out.
+  deriving (Eq)
 
 colorFromInt :: Int -> Color
 colorFromInt x =
@@ -129,10 +131,12 @@ feedClient chan socket = (sendMode socket initialMode) >> (go [initialMode])
         PopMode -> pure (tail modeStack)
         PushMode mode -> pure (mode : modeStack)
         SetMode mode -> pure (mode : tail modeStack)
+        Tick -> pure modeStack
 
       -- Send the mode which is currently on the top of the stack to the client,
-      -- if it changed.
-      when (modeStack' /= modeStack) $ sendMode socket (head modeStack')
+      -- if it changed, or if there was a tick.
+      let shouldSend = (modeStack' /= modeStack) || (cmd == Tick)
+      when shouldSend $ sendMode socket (head modeStack')
 
       -- Recurse to loop.
       go modeStack'
@@ -152,6 +156,18 @@ runHttpsServer certPath skeyPath port password chan =
     passwordSecMem = secureMemFromByteString $ ByteString.pack password
   in
     Warp.runTLS tlsSettings httpSettings =<< (scottyApp $ server passwordSecMem chan)
+
+-- Sends a Tick command to the channel every minute, in order to keep TCP
+-- connections from going idle. (The network-simple package does not expose a
+-- way to set SO_KEEPALIVE.)
+runTicker :: Chan Cmd -> IO ()
+runTicker chan = go
+  where
+    delaySecs = 60
+    go = do
+      threadDelay (1000 * 1000 * delaySecs) -- Delay is in microseconds.
+      Chan.writeChan chan Tick
+      go
 
 justGetEnv :: String -> IO String
 justGetEnv varname = do
@@ -182,6 +198,7 @@ main = do
 
   putStrLn $ "Starting socket server at port " ++ (show sockPort)
   void $ forkIO $ runSocketServer sockPort chan
+  void $ forkIO $ runTicker chan
 
   putStrLn $ "Starting https server at port " ++ (show httpPort)
   runHttpsServer certPath skeyPath httpPort password chan
