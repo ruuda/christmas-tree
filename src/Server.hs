@@ -13,7 +13,7 @@ module Main where
 -- This module defines a simple API server to control the lights.
 -- It can be used like so, for example:
 --
---     curl -d '' https://chainsaw:pass@example.com/blink?color=ff0000&duration=5
+--     curl -d '' https://chainsaw:pass@example.com/blink?color=ff0000&seconds=5
 
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Concurrent.Chan (Chan)
@@ -83,8 +83,8 @@ server password chan =
 
   post "/blink" $ do
     color <- Scotty.param "color"
-    duration <- Scotty.param "duration"
-    sendCmds [PushMode $ Blink color, Delay duration, PopMode]
+    durationSecs <- Scotty.param "seconds"
+    sendCmds [PushMode $ Blink color, Delay durationSecs, PopMode]
     Scotty.text "Blinking it is!\n"
 
   post "/rainbow" $ do
